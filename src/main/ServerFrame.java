@@ -1,94 +1,170 @@
+// Decompiled by Jad v1.5.8g. Copyright 2001 Pavel Kouznetsov.
+// Jad home page: http://www.kpdus.com/jad.html
+// Decompiler options: packimports(3) 
+// Source File Name:   ServerFrame.java
+
 package main;
 
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 
-public class ServerFrame implements Runnable {//¼­¹ö ¸ÞÀÎ ÇÁ·¹ÀÓ
-	
-	ServerSocket serverSocket;
-	Thread[] ThreadArr;
-	File f;
-	static FileWriter fw;
-	String logfiledir = "";//·Î±×ÆÄÀÏ µð·ºÅÍ¸®
-	static boolean iflogfilewrite = false;
-	
-	public static void main(String[] arg) throws Throwable{
-		
-		
-		ServerFrame server = new ServerFrame(12);
-		 server.start();
-		
-		
-	}
-	public ServerFrame(int num) {
-		
-	    try {
-	        // ¼­¹ö ¼ÒÄÏÀ» »ý¼ºÇÏ¿© 7777¹ø Æ÷Æ®¿Í ¹ÙÀÎµù.
-	        serverSocket = new ServerSocket(20007);
-	        
-	        logWrite(getTime() + " ¼­¹ö°¡ ÁØºñµÇ¾ú½À´Ï´Ù.");
+public class ServerFrame
+    implements Runnable
+{
 
-	        ThreadArr = new Thread[num];
-	    } catch (IOException e) {
-	        e.printStackTrace();
-	    }
-	}
-	public void start() throws IOException {
-		f  = new File(logfiledir);
-		fw = new FileWriter(f);
-	    for (int i = 0; i < ThreadArr.length; i++) {
-	        ThreadArr[i] = new Thread(this);
-	        ThreadArr[i].start();
-	    }
-	}
-	@Override
-	public void run() {
-		// TODO Auto-generated method stub
-		while (true) {
-	        try {
-	            logWrite(getTime() + " is waiting for connection..");
+    static ServerSocket serverSocket;
+    Thread ThreadArr[];
+    static String logfiledir = "./log";
+    static String winlogfiledir = "g:/test";
+    static boolean iflogfilewrite = true;
+    int Threadcount;
+    public int notConnected;
+    private StringBuffer sb;
+    byte TEST;
+    static File f;
+    static StringBuffer log = new StringBuffer();
 
-	            Socket socket = serverSocket.accept();
-	            logWrite(getTime() + " " + socket.getInetAddress()
-	                    + " catched connection request.");
+    public static void main(String arg[])
+        throws Throwable
+    {
+        System.out.println(System.getProperty("os.name"));
+        if(System.getProperty("os.name").contains("Windows"))
+        {
+            System.out.println("Windows!");
+            f = new File((new StringBuilder(String.valueOf(winlogfiledir))).append(getTime()).append(".log").toString());
+        } else
+        {
+            System.out.println("Linux or Other OS!");
+            f = new File((new StringBuilder(String.valueOf(logfiledir))).append(getTime()).append(".log").toString());
+        }
+        ServerFrame server = new ServerFrame(12);
+        server.star();
+    }
 
-	            OutputStream out = socket.getOutputStream();
-	            DataOutputStream dos = new DataOutputStream(out);
+    public ServerFrame(int num)
+    {
+        notConnected = 0;
+        TEST = 0;
+        try
+        {
+            serverSocket = new ServerSocket(20007);
+            logWrite(" server Ready. ");
+            ThreadArr = new Thread[num];
+        }
+        catch(IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
 
-	            dos.writeUTF("[Notice] Test Message1 from Server");
-	            logWrite(getTime() + " sent data.");
+    public void star()
+        throws IOException
+    {
+        for(int i = 0; i < ThreadArr.length; i++)
+        {
+            ThreadArr[i] = new Thread(this);
+            ThreadArr[i].start();
+            logWrite((new StringBuilder("Thread ")).append(i).append(" started. Id is \"").append(ThreadArr[i].getId()).append("\"\n").toString());
+        }
 
-	            dos.close();
-	            socket.close();
-	        } catch (IOException e) {
-	            e.printStackTrace();
-	        }
-	    }
-	}
-	static void logWrite(String t){
-		if(iflogfilewrite){
-			System.out.println(t);
-			try {
-	            fw.write(t);
-	            fw.close();
-	        } catch (IOException e) {
-	            e.printStackTrace();
-	        }
-			
-		}
-	}
-	static String getTime() {
-	    String name = Thread.currentThread().getName();
-	    SimpleDateFormat f = new SimpleDateFormat("[hh:mm:ss]");
-	    return f.format(new Date()) + name;
-	}
+    }
+
+    public void run()
+    {
+        do
+        {
+            notConnected++;
+            try
+            {
+                logWrite(" waiting for connection..");
+                Socket socket = serverSocket.accept();
+                notConnected--;
+                (new Thread(this)).start();
+                logWrite((new StringBuilder()).append(socket.getInetAddress()).append(" catched connection request.").toString());
+                OutputStream out = socket.getOutputStream();
+                BufferedReader bin = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                DataOutputStream dos = new DataOutputStream(out);
+                ///to Test
+                for(int i = 0; i < 1000; i++)
+                    writeout(out, new String((new StringBuilder("í…ŒìŠ¤íŠ¸ ë©”ì‹œì§€")).append(i).toString().getBytes("utf-8"), "utf-8"), TEST);
+
+                sb = new StringBuffer();
+                while(socket.isConnected()) 
+                {
+                    writeout(out, "message", TEST);
+                    sb.append(bin.readLine());
+                    for(; sb == null && sb.toString().length() != 0; sb.delete(0, sb.length()))
+                        System.out.println(sb.toString());
+
+                }
+                ///to Test
+                logWrite("sent data.");
+                bin.close();
+                out.close();
+                socket.close();
+            }
+            catch(IOException e)
+            {
+                e.printStackTrace();
+            }
+            if(notConnected > 12)
+            {
+                logWrite("Thread returned");
+                break;
+            }
+            logWrite("Thread loop");
+        } while(true);
+    }
+
+    static void logWrite(String t)
+    {
+        String name = Thread.currentThread().getName();
+        System.out.println((new StringBuilder(String.valueOf(getTime()))).append(name).append(" : ").append(t).toString());
+        if(iflogfilewrite)
+        {
+            try
+            {
+                FileWriter fw = new FileWriter(f);
+                log.append((new StringBuilder(String.valueOf(getTime()))).append(name).append(" : ").append(t).append("\r\n").toString());
+                fw.write(log.toString());
+                fw.close();
+            }
+            catch(IOException e)
+            {
+                e.printStackTrace();
+            }
+            if(log.length() > 65535)
+            {
+                log.delete(0, log.length());
+                if(System.getProperty("os.name").contains("Windows"))
+                {
+                    System.out.println("Windows!");
+                    f = new File((new StringBuilder(String.valueOf(winlogfiledir))).append(getTime()).append(".log").toString());
+                } else
+                {
+                    System.out.println("Linux or Other OS!");
+                    f = new File((new StringBuilder(String.valueOf(logfiledir))).append(getTime()).append(".log").toString());
+                }
+            }
+        }
+    }
+
+    static void writeout(OutputStream out, String message, byte Start)
+        throws IOException
+    {
+        byte end = -1;
+        out.write(Start);
+        out.write(message.getBytes());
+        out.write(end);
+    }
+
+    static String getTime()
+    {
+        SimpleDateFormat f = new SimpleDateFormat("yyyy.MM.dd G 'at'HH.mm.ss z");
+        return f.format(new Date());
+    }
 
 }
